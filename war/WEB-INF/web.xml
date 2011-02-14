@@ -12,7 +12,17 @@ http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd" version="2.5">
 		<servlet-name>SwingsetWeb</servlet-name>
 		<url-pattern>/swingsetweb</url-pattern>
 	</servlet-mapping>
+	
+	<servlet>
+		<servlet-name>Playground</servlet-name>
+		<servlet-class>com.jeremyhaberman.swingsetweb.PlaygroundServlet</servlet-class>
+	</servlet>
+	<servlet-mapping>
+		<servlet-name>Playground</servlet-name>
+		<url-pattern>/playground</url-pattern>
+	</servlet-mapping>
+	
 	<welcome-file-list>
-		<welcome-file>index.html</welcome-file>
+		<welcome-file>playgrounds.jsp</welcome-file>
 	</welcome-file-list>
 </web-app>
