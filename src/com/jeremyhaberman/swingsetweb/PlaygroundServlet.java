@@ -71,9 +71,15 @@ public class PlaygroundServlet extends HttpServlet {
 		
 		List<Playground> playgrounds = null;
 		
-		String requestType = req.getParameter(TYPE);
+		String requestType = null;
 		
-		if(requestType.equalsIgnoreCase(NEARBY)) {
+		try {
+			requestType = req.getParameter(TYPE);
+		} catch (Exception e) {
+		}
+		
+		
+		if(requestType != null && requestType.equalsIgnoreCase(NEARBY)) {
 			String latitudeStr = req.getParameter(LATITUDE);
 			String longitudeStr = req.getParameter(LONGITUDE);
 			String maxQuantityStr = req.getParameter(MAX);
@@ -83,7 +89,7 @@ public class PlaygroundServlet extends HttpServlet {
 			int maxQuantity = Integer.parseInt(maxQuantityStr);
 			
 			playgrounds = getNearbyPlaygrounds(new LatLonPoint(currentLatitude, currentLongitude), maxQuantity);
-		} else if (requestType.equalsIgnoreCase(WITHIN)) {
+		} else if (requestType != null && requestType.equalsIgnoreCase(WITHIN)) {
 			
 			String topLeftLatitudeStr = req.getParameter(TOP_LEFT_LATITUDE_PARAM);
 			String topLeftLongitudeStr = req.getParameter(TOP_LEFT_LONGITUDE_PARAM);
@@ -103,9 +109,6 @@ public class PlaygroundServlet extends HttpServlet {
 		} else {
 			playgrounds = getAllPlaygrounds();
 		}
-		
-		
-		
 		
 	    Gson gson = new Gson();
 	    
