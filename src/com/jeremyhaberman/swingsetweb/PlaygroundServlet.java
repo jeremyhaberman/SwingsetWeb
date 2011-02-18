@@ -35,20 +35,20 @@ public class PlaygroundServlet extends HttpServlet {
 	private static final String TOP_LEFT_LONGITUDE_PARAM = "topleftlong";
 	private static final String BOTTOM_RIGHT_LATITUDE_PARAM = "botrightlat";
 	private static final String BOTTOM_RIGHT_LONGITUDE_PARAM = "botrightlong";
+	private static final String RANGE = "range";
 
-	public void doPost(HttpServletRequest req, HttpServletResponse resp)
-			throws IOException {
-		
+	public void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+
 		String name = req.getParameter("name");
 		String description = req.getParameter("description");
-//		double latitude = Double.parseDouble(req.getParameter("latitude"));
-//		double longitude = Double.parseDouble(req.getParameter("longitude"));
+		// double latitude = Double.parseDouble(req.getParameter("latitude"));
+		// double longitude = Double.parseDouble(req.getParameter("longitude"));
 		int latitudeE6 = Integer.parseInt(req.getParameter("latitude"));
 		int longitudeE6 = Integer.parseInt(req.getParameter("longitude"));
-		
-//		int latitudeE6 = (int) (latitude * 1E6);
-//		int longitudeE6 = (int) (longitude * 1E6);
-		
+
+		// int latitudeE6 = (int) (latitude * 1E6);
+		// int longitudeE6 = (int) (longitude * 1E6);
+
 		Playground playground = new Playground(name, description, latitudeE6, longitudeE6);
 
 		PersistenceManager pm = PMF.get().getPersistenceManager();
@@ -62,188 +62,233 @@ public class PlaygroundServlet extends HttpServlet {
 		} finally {
 			pm.close();
 
-//			resp.sendRedirect("/playgrounds.jsp");
+			// resp.sendRedirect("/playgrounds.jsp");
 		}
 
 	}
-	
+
 	public void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
-		
+
 		List<Playground> playgrounds = null;
-		
+
 		String requestType = null;
-		
+
 		try {
 			requestType = req.getParameter(TYPE);
 		} catch (Exception e) {
 		}
-		
-		
-		if(requestType != null && requestType.equalsIgnoreCase(NEARBY)) {
+
+		if (requestType != null && requestType.equalsIgnoreCase(RANGE)) {
+			String latitudeStr = req.getParameter(LATITUDE);
+			String longitudeStr = req.getParameter(LONGITUDE);
+			String rangeStr = req.getParameter(RANGE);
+
+			double currentLatitude = Double.parseDouble(latitudeStr);
+			double currentLongitude = Double.parseDouble(longitudeStr);
+			int range = Integer.parseInt(rangeStr);
+
+			playgrounds = getPlaygroundsWithinRange(new LatLonPoint(currentLatitude, currentLongitude),
+					range);
+			
+			
+//			http://swingsetweb.appspot.com/playground?type=within&latitude=44.904507&longitude=-93.25626&range=1
+		} else if (requestType != null && requestType.equalsIgnoreCase(NEARBY)) {
 			String latitudeStr = req.getParameter(LATITUDE);
 			String longitudeStr = req.getParameter(LONGITUDE);
 			String maxQuantityStr = req.getParameter(MAX);
-			
+
 			double currentLatitude = Double.parseDouble(latitudeStr);
 			double currentLongitude = Double.parseDouble(longitudeStr);
 			int maxQuantity = Integer.parseInt(maxQuantityStr);
-			
-			playgrounds = getNearbyPlaygrounds(new LatLonPoint(currentLatitude, currentLongitude), maxQuantity);
+
+			playgrounds = getNearbyPlaygrounds(new LatLonPoint(currentLatitude, currentLongitude),
+					maxQuantity);
 		} else if (requestType != null && requestType.equalsIgnoreCase(WITHIN)) {
-			
+
 			String topLeftLatitudeStr = req.getParameter(TOP_LEFT_LATITUDE_PARAM);
 			String topLeftLongitudeStr = req.getParameter(TOP_LEFT_LONGITUDE_PARAM);
 			String bottomRightLatitudeStr = req.getParameter(BOTTOM_RIGHT_LATITUDE_PARAM);
 			String bottomRightLongitudeStr = req.getParameter(BOTTOM_RIGHT_LONGITUDE_PARAM);
-			
-			
+
 			double topLeftLat = Double.parseDouble(topLeftLatitudeStr);
 			double topLeftLong = Double.parseDouble(topLeftLongitudeStr);
 			double bottomRightLat = Double.parseDouble(bottomRightLatitudeStr);
 			double bottomRightLong = Double.parseDouble(bottomRightLongitudeStr);
-			
+
 			LatLonPoint topLeft = new LatLonPoint(topLeftLat, topLeftLong);
 			LatLonPoint bottomRight = new LatLonPoint(bottomRightLat, bottomRightLong);
-			
+
 			playgrounds = getPlaygroundsWithinBounds(topLeft, bottomRight);
 		} else {
 			playgrounds = getAllPlaygrounds();
 		}
-		
-	    Gson gson = new Gson();
-	    
-	    String allPlaygrounds = gson.toJson(playgrounds);
-	    
-	    resp.setContentType("application/json");
-	    resp.getWriter().append(allPlaygrounds);	
+
+		Gson gson = new Gson();
+
+		String allPlaygrounds = gson.toJson(playgrounds);
+
+		resp.setContentType("application/json");
+		resp.getWriter().append(allPlaygrounds);
 	}
-	
-	
 
 	List<Playground> getAllPlaygrounds() {
 		PersistenceManager pm = PMF.get().getPersistenceManager();
-	    String query = "select from " + Playground.class.getName();
-	    return (List<Playground>) pm.newQuery(query).execute();
+		String query = "select from " + Playground.class.getName();
+		return (List<Playground>) pm.newQuery(query).execute();
 	}
-	
+
 	List<Playground> getNearbyPlaygrounds(LatLonPoint currentLocation, int maxQuantity) {
-		
+
 		Map<Key, Playground> allPlaygrounds = toMap(getAllPlaygrounds());
 		List<Playground> nearbyPlaygrounds = new ArrayList<Playground>();
-		
-		LatLonPoint currentPoint = new LatLonPoint(currentLocation.getLatitude(), currentLocation.getLongitude());
-		
+
+		LatLonPoint currentPoint = new LatLonPoint(currentLocation.getLatitude(),
+				currentLocation.getLongitude());
+
 		Map<Key, Double> tempPlaygrounds = new TreeMap<Key, Double>();
-		
+
 		Set<Key> playgroundKeys = allPlaygrounds.keySet();
-		
+
 		Playground tempPlayground = null;
 		Double distance = 0.0;
-		for(Key current : playgroundKeys) {
+		for (Key current : playgroundKeys) {
 			tempPlayground = allPlaygrounds.get(current);
 			distance = getDistance(currentPoint, tempPlayground);
 			tempPlaygrounds.put(tempPlayground.getKey(), distance);
 		}
-		
+
 		Map<Key, Double> sortedPlaygrounds = sortByValue(tempPlaygrounds);
-		
+
 		int count = 0;
 		Set<Key> keys = sortedPlaygrounds.keySet();
 		Iterator<Key> keyIterator = keys.iterator();
-		while(keyIterator.hasNext() && count < maxQuantity) {
+		while (keyIterator.hasNext() && count < maxQuantity) {
 			tempPlayground = allPlaygrounds.get(keyIterator.next());
 			nearbyPlaygrounds.add(tempPlayground);
 			count++;
 		}
-			
-		
+
 		return nearbyPlaygrounds;
+
+	}
+	
+	List<Playground> getPlaygroundsWithinRange(LatLonPoint currentLocation, int rangeInMiles) {
+
+		Map<Key, Playground> allPlaygrounds = toMap(getAllPlaygrounds());
+		List<Playground> nearbyPlaygrounds = new ArrayList<Playground>();
+
+		LatLonPoint currentPoint = new LatLonPoint(currentLocation.getLatitude(),
+				currentLocation.getLongitude());
+
+		Map<Key, Double> tempPlaygrounds = new TreeMap<Key, Double>();
+
+		Set<Key> playgroundKeys = allPlaygrounds.keySet();
 		
+		double range = rangeInMiles * 1609.344;
+
+		Playground tempPlayground = null;
+		Double distance = 0.0;
+		for (Key current : playgroundKeys) {
+			tempPlayground = allPlaygrounds.get(current);
+			distance = getDistance(currentPoint, tempPlayground);
+			if(distance < range) {
+				tempPlaygrounds.put(tempPlayground.getKey(), distance);
+			}
+		}
+
+		Set<Key> keys = tempPlaygrounds.keySet();
+		Iterator<Key> keyIterator = keys.iterator();
+		while (keyIterator.hasNext()) {
+			tempPlayground = allPlaygrounds.get(keyIterator.next());
+			nearbyPlaygrounds.add(tempPlayground);
+		}
+
+		return nearbyPlaygrounds;
+
 	}
 
 	private Map<Key, Playground> toMap(List<Playground> allPlaygrounds) {
 		Map<Key, Playground> playgroundMap = new HashMap<Key, Playground>();
 		Iterator<Playground> playgroundIter = allPlaygrounds.iterator();
 		Playground tempPlayground = null;
-		while(playgroundIter.hasNext()) {
+		while (playgroundIter.hasNext()) {
 			tempPlayground = playgroundIter.next();
 			playgroundMap.put(tempPlayground.getKey(), tempPlayground);
 		}
 		return playgroundMap;
 	}
 
-	private Double getDistance(LatLonPoint currentPoint,
-			Playground currentPlayground) {
-		
+	private Double getDistance(LatLonPoint currentPoint, Playground currentPlayground) {
+
 		double playgroundLatitude = currentPlayground.getLatitude() / 1E6;
 		double playgroundLongitude = currentPlayground.getLongitude() / 1E6;
-		
+
 		LatLonPoint playgroundPoint = new LatLonPoint(playgroundLatitude, playgroundLongitude);
-		
+
 		return LatLonUtils.getHaversineDistance(currentPoint, playgroundPoint);
 	}
-	
-	Map sortByValue(Map map) {
-	     List list = new LinkedList(map.entrySet());
-	     Collections.sort(list, new Comparator() {
-	          public int compare(Object o1, Object o2) {
-	               return ((Comparable) ((Map.Entry) (o1)).getValue())
-	              .compareTo(((Map.Entry) (o2)).getValue());
-	          }
-	     });
 
-	    Map result = new LinkedHashMap();
-	    for (Iterator it = list.iterator(); it.hasNext();) {
-	        Map.Entry entry = (Map.Entry)it.next();
-	        result.put(entry.getKey(), entry.getValue());
-	    }
-	    return result;
-	} 
-	
+	Map sortByValue(Map map) {
+		List list = new LinkedList(map.entrySet());
+		Collections.sort(list, new Comparator() {
+			public int compare(Object o1, Object o2) {
+				return ((Comparable) ((Map.Entry) (o1)).getValue()).compareTo(((Map.Entry) (o2))
+						.getValue());
+			}
+		});
+
+		Map result = new LinkedHashMap();
+		for (Iterator it = list.iterator(); it.hasNext();) {
+			Map.Entry entry = (Map.Entry) it.next();
+			result.put(entry.getKey(), entry.getValue());
+		}
+		return result;
+	}
+
 	private List<Playground> getPlaygroundsWithinBounds(LatLonPoint topLeft, LatLonPoint bottomRight) {
 		List<Playground> allPlaygrounds = getAllPlaygrounds();
 		List<Playground> playgroundsWithinBounds = new ArrayList<Playground>();
-		
+
 		double maxLat = topLeft.getLatitude();
 		double minLat = bottomRight.getLatitude();
 		double maxLong = topLeft.getLongitude();
 		double minLong = bottomRight.getLongitude();
-		
+
 		double tempLat = 0.0;
 		double tempLong = 0.0;
-		
+
 		Iterator<Playground> playgroundIter = allPlaygrounds.iterator();
-		
+
 		Playground tempPlayground = null;
-		while(playgroundIter.hasNext()) {
+		while (playgroundIter.hasNext()) {
 			tempPlayground = playgroundIter.next();
 			tempLat = tempPlayground.getLatitude() * 1.0 / 1E6;
-			if(isInRange(tempLat, minLat, maxLat)) {
+			if (isInRange(tempLat, minLat, maxLat)) {
 				tempLong = tempPlayground.getLongitude() * 1.0 / 1E6;
-				if(isInRange(tempLong, minLong, maxLong)) {
+				if (isInRange(tempLong, minLong, maxLong)) {
 					playgroundsWithinBounds.add(tempPlayground);
 				}
 			}
 		}
-					
+
 		return playgroundsWithinBounds;
 	}
-	
+
 	private boolean isInRange(double value, double min, double max) {
 
-	    assert(value >= -180.0 && value <= 180.0);
-	    assert(min >= -180.0 && min <= 180.0);
-	    assert(max >= -180.0 && max <= 180.0);
+		assert (value >= -180.0 && value <= 180.0);
+		assert (min >= -180.0 && min <= 180.0);
+		assert (max >= -180.0 && max <= 180.0);
 
-	    if (value < min) {
-	        value += 360.0;
-	    }
+		if (value < min) {
+			value += 360.0;
+		}
 
-	    if (max < min) {
-	        max += 360.0;
-	    }
+		if (max < min) {
+			max += 360.0;
+		}
 
-	    return (value >= min) && (value <= max);
+		return (value >= min) && (value <= max);
 	}
 
 }
