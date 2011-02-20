@@ -27,27 +27,15 @@ public class PlaygroundServlet extends HttpServlet {
 
 	private static final String LATITUDE = "latitude";
 	private static final String LONGITUDE = "longitude";
-	private static final String MAX = "max";
 	private static final String TYPE = "type";
-	private static final String NEARBY = "nearby";
-	private static final String WITHIN = "within";
-	private static final String TOP_LEFT_LATITUDE_PARAM = "topleftlat";
-	private static final String TOP_LEFT_LONGITUDE_PARAM = "topleftlong";
-	private static final String BOTTOM_RIGHT_LATITUDE_PARAM = "botrightlat";
-	private static final String BOTTOM_RIGHT_LONGITUDE_PARAM = "botrightlong";
 	private static final String RANGE = "range";
 
 	public void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
 
 		String name = req.getParameter("name");
 		String description = req.getParameter("description");
-		// double latitude = Double.parseDouble(req.getParameter("latitude"));
-		// double longitude = Double.parseDouble(req.getParameter("longitude"));
 		int latitudeE6 = Integer.parseInt(req.getParameter("latitude"));
 		int longitudeE6 = Integer.parseInt(req.getParameter("longitude"));
-
-		// int latitudeE6 = (int) (latitude * 1E6);
-		// int longitudeE6 = (int) (longitude * 1E6);
 
 		Playground playground = new Playground(name, description, latitudeE6, longitudeE6);
 
@@ -61,8 +49,6 @@ public class PlaygroundServlet extends HttpServlet {
 			resp.getWriter().append("FAILED");
 		} finally {
 			pm.close();
-
-			// resp.sendRedirect("/playgrounds.jsp");
 		}
 
 	}
@@ -71,17 +57,16 @@ public class PlaygroundServlet extends HttpServlet {
 
 		List<Playground> playgrounds = null;
 
-		String requestType = null;
-
 		try {
-			requestType = req.getParameter(TYPE);
+			req.getParameter(TYPE);
 		} catch (Exception e) {
+			// TODO: Something needs to be done here
 		}
-
-		if (requestType != null && requestType.equalsIgnoreCase(RANGE)) {
+		
+		String rangeStr = req.getParameter(RANGE);
+		if(rangeStr != null) {
 			String latitudeStr = req.getParameter(LATITUDE);
 			String longitudeStr = req.getParameter(LONGITUDE);
-			String rangeStr = req.getParameter(RANGE);
 
 			double currentLatitude = Double.parseDouble(latitudeStr);
 			double currentLongitude = Double.parseDouble(longitudeStr);
@@ -89,36 +74,6 @@ public class PlaygroundServlet extends HttpServlet {
 
 			playgrounds = getPlaygroundsWithinRange(new LatLonPoint(currentLatitude, currentLongitude),
 					range);
-			
-			
-//			http://swingsetweb.appspot.com/playground?type=within&latitude=44.904507&longitude=-93.25626&range=1
-		} else if (requestType != null && requestType.equalsIgnoreCase(NEARBY)) {
-			String latitudeStr = req.getParameter(LATITUDE);
-			String longitudeStr = req.getParameter(LONGITUDE);
-			String maxQuantityStr = req.getParameter(MAX);
-
-			double currentLatitude = Double.parseDouble(latitudeStr);
-			double currentLongitude = Double.parseDouble(longitudeStr);
-			int maxQuantity = Integer.parseInt(maxQuantityStr);
-
-			playgrounds = getNearbyPlaygrounds(new LatLonPoint(currentLatitude, currentLongitude),
-					maxQuantity);
-		} else if (requestType != null && requestType.equalsIgnoreCase(WITHIN)) {
-
-			String topLeftLatitudeStr = req.getParameter(TOP_LEFT_LATITUDE_PARAM);
-			String topLeftLongitudeStr = req.getParameter(TOP_LEFT_LONGITUDE_PARAM);
-			String bottomRightLatitudeStr = req.getParameter(BOTTOM_RIGHT_LATITUDE_PARAM);
-			String bottomRightLongitudeStr = req.getParameter(BOTTOM_RIGHT_LONGITUDE_PARAM);
-
-			double topLeftLat = Double.parseDouble(topLeftLatitudeStr);
-			double topLeftLong = Double.parseDouble(topLeftLongitudeStr);
-			double bottomRightLat = Double.parseDouble(bottomRightLatitudeStr);
-			double bottomRightLong = Double.parseDouble(bottomRightLongitudeStr);
-
-			LatLonPoint topLeft = new LatLonPoint(topLeftLat, topLeftLong);
-			LatLonPoint bottomRight = new LatLonPoint(bottomRightLat, bottomRightLong);
-
-			playgrounds = getPlaygroundsWithinBounds(topLeft, bottomRight);
 		} else {
 			playgrounds = getAllPlaygrounds();
 		}
